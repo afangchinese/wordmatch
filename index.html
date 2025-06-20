@@ -2,36 +2,51 @@
 <html lang="zh">
 <head>
   <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>拼音配對遊戲</title>
   <style>
     body { font-family: sans-serif; text-align: center; background: #f9f9f9; margin: 20px; }
-    h1 { margin-bottom: 10px; }
-    #inputArea { width: 100%; height: 120px; font-size: 14px; margin-bottom: 10px; display: none; }
-    button, select, label { padding: 10px 20px; margin: 10px; font-size: 16px; cursor: pointer; }
-    #gameWrapper { display: flex; justify-content: center; gap: 40px; margin-top: 20px; }
+    h1 { margin-bottom: 10px; font-size: 1.5em; }
+    #inputArea {
+      display: block;
+      margin-left: auto;
+      margin-right: auto; width: 90%; max-width: 600px; height: 120px; font-size: 14px; margin-bottom: 10px; display: none; }
+    button, select, label { padding: 10px 20px; margin: 5px; font-size: 16px; cursor: pointer; }
+    #gameWrapper { display: flex; flex-direction: column; align-items: center; gap: 20px; margin-top: 20px; }
     .column { display: flex; flex-direction: column; gap: 10px; }
-    .card { width: 240px; height: 60px; background: white; border: 2px solid #ccc; border-radius: 8px;
-            display: flex; justify-content: center; align-items: center; font-size: 18px; cursor: pointer; }
+    .card { width: 90vw; max-width: 240px; height: 60px; background: white; border: 2px solid #ccc; border-radius: 8px;
+            display: flex; justify-content: center; align-items: center; font-size: 18px; cursor: pointer; margin: auto; }
     .card.selected { background: #a5d6a7; border-color: #2e7d32; }
     .card.error { background: #ef9a9a; border-color: #c62828; }
     #status { margin-top: 20px; font-size: 16px; white-space: pre-wrap; }
     #replayBtn { display: none; }
     #progress { margin-top: 10px; font-size: 14px; color: #555; }
+    #shareOutput input { width: 90%; max-width: 500px; }
+    @media (min-width: 768px) {
+      #gameWrapper { flex-direction: row; justify-content: center; }
+    }
   </style>
+  <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
 </head>
 <body>
   <h1 id="gameTitle">中文字與拼音配對遊戲</h1>
+<div>
   <textarea id="inputArea" placeholder="每行格式：蘋果,píngguǒ"></textarea><br>
-  <button onclick="startGame()" id="startBtn">開始遊戲</button>
-  <button onclick="showInputArea()" id="restartBtn">輸入詞組</button>
-  <button onclick="startGame()" id="replayBtn">再玩一次</button>
-  <button onclick="shareGame()">分享遊戲</button>
-  <label><input type="checkbox" id="soundToggle" checked> <span id="soundLabel">啟用聲音</span></label>
-  <select id="voiceSelect"></select>
-  <select id="langSelect" onchange="switchLang(this.value)">
-    <option value="zh-Hant" selected>繁體中文</option>
-    <option value="zh-Hans">简体中文</option>
-  </select>
+</div>
+<div>
+    <button onclick="startGame()" id="startBtn">開始遊戲</button>
+    <button onclick="showInputArea()" id="restartBtn">輸入詞組</button>
+    <button onclick="startGame()" id="replayBtn">再玩一次</button>
+    <button onclick="shareGame()" id="shareBtn">分享遊戲</button>
+  </div>
+  <div>
+    <label><input type="checkbox" id="soundToggle" checked> <span id="soundLabel">啟用聲音</span></label>
+    <select id="voiceSelect"></select>
+    <select id="langSelect" onchange="switchLang(this.value)">
+      <option value="zh-Hant" selected>繁體中文</option>
+      <option value="zh-Hans">简体中文</option>
+    </select>
+  </div>
   <div id="timer">⏱ 時間：0 秒</div>
   <div id="progress"></div>
   <div id="gameWrapper">
@@ -39,251 +54,255 @@
     <div id="rightColumn" class="column"></div>
   </div>
   <div id="status"></div>
+  <div id="shareOutput" style="margin-top: 20px;"></div>
 
   <audio id="errorSound" src="sounds/errorsound.mp3"></audio>
   <audio id="winSound" src="sounds/win.mp3"></audio>
 
   <script>
-    let allPairs = [], queuePairs = [], activePairs = [], matchedCards = [], missedAnswers = [], firstCard = null, attempts = 0, gameStarted = false, startTime = 0, timerInterval = null;
+  let allPairs = [], queuePairs = [], activePairs = [], matchedCards = [], missedAnswers = [], firstCard = null, attempts = 0, gameStarted = false, startTime = 0, timerInterval = null;
 
-    function showInputArea() {
-      document.getElementById("inputArea").style.display = "block";
+  function showInputArea() {
+    document.getElementById("inputArea").style.display = "block";
+  }
+
+  function populateVoiceOptions() {
+    const voiceSelect = document.getElementById("voiceSelect");
+    const voices = speechSynthesis.getVoices();
+    if (!voices.length) return;
+    voiceSelect.innerHTML = "";
+    voices.forEach((voice, index) => {
+      const option = document.createElement("option");
+      option.value = index;
+      option.textContent = `${voice.name} (${voice.lang})`;
+      voiceSelect.appendChild(option);
+    });
+    const lang = document.getElementById("langSelect").value;
+    const preferred = lang === "zh-Hans" ? "婷婷" : "美佳";
+    const preferredIndex = voices.findIndex(v => v.name.includes(preferred));
+    if (preferredIndex >= 0) voiceSelect.value = preferredIndex;
+  }
+
+  function speak(text) {
+    if (!document.getElementById("soundToggle").checked) return;
+    const voices = speechSynthesis.getVoices();
+    const selected = document.getElementById("voiceSelect").value;
+    const utterance = new SpeechSynthesisUtterance(text);
+    if (voices[selected]) {
+      utterance.voice = voices[selected];
+      utterance.lang = voices[selected].lang;
     }
 
-    function populateVoiceOptions() {
-      const voiceSelect = document.getElementById("voiceSelect");
-      const voices = speechSynthesis.getVoices();
-      if (!voices.length) return;
-
-      voiceSelect.innerHTML = "";
-      voices.forEach((voice, index) => {
-        const option = document.createElement("option");
-        option.value = index;
-        option.textContent = `${voice.name} (${voice.lang})`;
-        voiceSelect.appendChild(option);
-      });
-
-      const lang = document.getElementById("langSelect").value;
-      const preferredVoiceIndex =
-        lang === "zh-Hans"
-          ? voices.findIndex(v => v.name.includes("婷婷") && v.lang === "zh-CN")
-          : voices.findIndex(v => v.name.includes("美佳") && v.lang === "zh-TW");
-
-      if (preferredVoiceIndex >= 0) voiceSelect.value = preferredVoiceIndex;
+    // 先取消前一段
+    if (speechSynthesis.speaking || speechSynthesis.pending) {
+      speechSynthesis.cancel();
     }
 
-    function speak(text) {
-      if (!document.getElementById("soundToggle").checked) return;
-      const voices = speechSynthesis.getVoices();
-      const selected = document.getElementById("voiceSelect").value;
-      const utterance = new SpeechSynthesisUtterance(text);
-      if (voices[selected]) {
-        utterance.voice = voices[selected];
-        utterance.lang = voices[selected].lang;
-      }
-      speechSynthesis.speak(utterance);
+    speechSynthesis.speak(utterance);
+  }
+
+  function switchLang(lang) {
+    document.documentElement.lang = lang;
+    document.getElementById("gameTitle").textContent = lang === "zh-Hans" ? "汉字与拼音配对游戏" : "中文字與拼音配對遊戲";
+    document.getElementById("startBtn").textContent = lang === "zh-Hans" ? "开始游戏" : "開始遊戲";
+    document.getElementById("restartBtn").textContent = lang === "zh-Hans" ? "输入词组" : "輸入詞組";
+    document.getElementById("replayBtn").textContent = lang === "zh-Hans" ? "再玩一次" : "再玩一次";
+    document.getElementById("shareBtn").textContent = lang === "zh-Hans" ? "分享游戏" : "分享遊戲";
+    document.getElementById("soundLabel").textContent = lang === "zh-Hans" ? "启用声音" : "啟用聲音";
+    document.getElementById("timer").textContent = lang === "zh-Hans" ? "⏱ 时间：0 秒" : "⏱ 時間：0 秒";
+
+    populateVoiceOptions();
+  }
+
+  function shareGame() {
+    const inputText = document.getElementById("inputArea").value;
+    const encoded = btoa(encodeURIComponent(inputText));
+    const shareUrl = `${location.origin}${location.pathname}?data=${encoded}`;
+    const lang = document.getElementById("langSelect").value;
+    const copyBtnText = lang === "zh-Hans" ? "复制链接" : "複製連結";
+    const out = document.getElementById("shareOutput");
+    out.innerHTML = `
+      <input type="text" value="${shareUrl}" id="copyLink" readonly style="width:90%; max-width:500px; font-size:14px; padding:5px; margin-bottom:10px;" />
+      <br><button onclick="copyLinkToClipboard()">${copyBtnText}</button>
+      <div style="margin-top:10px; display: flex; justify-content: center;"><div id="qrcode"></div></div>
+    `;
+    new QRCode(document.getElementById("qrcode"), {
+      text: shareUrl,
+      width: 128,
+      height: 128
+    });
+  }
+
+  function copyLinkToClipboard() {
+    const linkInput = document.getElementById("copyLink");
+    linkInput.select();
+    linkInput.setSelectionRange(0, 99999);
+    document.execCommand("copy");
+    alert("連結已複製！");
+  }
+
+  function startGame() {
+    const inputText = document.getElementById("inputArea").value;
+    localStorage.setItem("lastInput", inputText);
+    document.getElementById("inputArea").style.display = "none";
+    document.getElementById("replayBtn").style.display = "none";
+    document.getElementById("status").textContent = "";
+    document.getElementById("progress").style.display = "block";
+    document.getElementById("timer").textContent = "⏱ 時間：0 秒";
+    document.getElementById("gameWrapper").style.display = "flex";
+    const lines = inputText.trim().split("\n");
+    allPairs = lines.map((line, i) => {
+      const parts = line.trim().split(",");
+      return { word: parts[0], pinyin: parts[1], id: i };
+    }).filter(pair => pair.word && pair.pinyin);
+    if (allPairs.length < 4) {
+      alert("請至少輸入 4 組詞語，格式為：蘋果,píngguǒ");
+      return;
     }
+    queuePairs = shuffle([...allPairs]);
+    activePairs = queuePairs.splice(0, 4);
+    matchedCards = [];
+    missedAnswers = [];
+    firstCard = null;
+    attempts = 0;
+    gameStarted = false;
+    clearInterval(timerInterval);
+    renderCards();
+  }
 
-    function shuffle(arr) {
-      for (let i = arr.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [arr[i], arr[j]] = [arr[j], arr[i]];
-      }
-      return arr;
+  function shuffle(arr) {
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
     }
+    return arr;
+  }
 
-    function startGame() {
-      const inputText = document.getElementById("inputArea").value;
-      localStorage.setItem("lastInput", inputText);
+  function renderCards() {
+    const leftCol = document.getElementById("leftColumn");
+    const rightCol = document.getElementById("rightColumn");
+    leftCol.innerHTML = rightCol.innerHTML = "";
+    const leftCards = shuffle(activePairs.map(p => ({ ...p, type: 'word' })));
+    const rightCards = shuffle(activePairs.map(p => ({ ...p, type: 'pinyin' })));
+    leftCards.forEach(item => {
+      const div = document.createElement("div");
+      div.className = "card";
+      div.textContent = item.word;
+      div.onclick = () => handleCardClick(div, item);
+      leftCol.appendChild(div);
+    });
+    rightCards.forEach(item => {
+      const div = document.createElement("div");
+      div.className = "card";
+      div.textContent = item.pinyin;
+      div.onclick = () => handleCardClick(div, item);
+      rightCol.appendChild(div);
+    });
+    document.getElementById("progress").textContent =
+      `已完成配對：${matchedCards.length} / ${allPairs.length} 組`;
+  }
 
-      document.getElementById("inputArea").style.display = "none";
-      document.getElementById("replayBtn").style.display = "none";
-      document.getElementById("status").textContent = "";
-      document.getElementById("progress").style.display = "block";
-      document.getElementById("timer").textContent = "⏱ 時間：0 秒";
-      document.getElementById("gameWrapper").style.display = "flex";
-
-      const lines = inputText.trim().split("\n");
-      allPairs = lines.map((line, i) => {
-        const parts = line.trim().split(",");
-        return { word: parts[0], pinyin: parts[1], id: i };
-      }).filter(pair => pair.word && pair.pinyin);
-
-      if (allPairs.length < 4) {
-        alert("請至少輸入 4 組詞語，格式為：蘋果,píngguǒ");
-        return;
-      }
-
-      queuePairs = shuffle([...allPairs]);
-      activePairs = queuePairs.splice(0, 4);
-      matchedCards = [];
-      missedAnswers = [];
-      firstCard = null;
-      attempts = 0;
-      gameStarted = false;
-      clearInterval(timerInterval);
-      renderCards();
+  function handleCardClick(element, item) {
+    if (!gameStarted) {
+      startTime = Date.now();
+      timerInterval = setInterval(() => {
+        const sec = Math.floor((Date.now() - startTime) / 1000);
+        document.getElementById("timer").textContent = `⏱ 時間：${sec} 秒`;
+      }, 1000);
+      gameStarted = true;
     }
-
-    function renderCards() {
-      const leftCol = document.getElementById("leftColumn");
-      const rightCol = document.getElementById("rightColumn");
-      leftCol.innerHTML = rightCol.innerHTML = "";
-
-      const leftCards = shuffle(activePairs.map(p => ({ ...p, type: 'word' })));
-      const rightCards = shuffle(activePairs.map(p => ({ ...p, type: 'pinyin' })));
-
-      leftCards.forEach(item => {
-        const div = document.createElement("div");
-        div.className = "card";
-        div.textContent = item.word;
-        div.onclick = () => handleCardClick(div, item);
-        leftCol.appendChild(div);
-      });
-
-      rightCards.forEach(item => {
-        const div = document.createElement("div");
-        div.className = "card";
-        div.textContent = item.pinyin;
-        div.onclick = () => handleCardClick(div, item);
-        rightCol.appendChild(div);
-      });
-
-      document.getElementById("progress").textContent =
-        `已完成配對：${matchedCards.length} / ${allPairs.length} 組`;
-    }
-
-    function handleCardClick(element, item) {
-      if (!gameStarted) {
-        startTime = Date.now();
-        timerInterval = setInterval(() => {
-          const sec = Math.floor((Date.now() - startTime) / 1000);
-          document.getElementById("timer").textContent = `⏱ 時間：${sec} 秒`;
-        }, 1000);
-        gameStarted = true;
-      }
-
-      if (element.classList.contains("selected")) return;
-      element.classList.add("selected");
-      if (item.type === "word") speak(item.word);
-
-      if (!firstCard) {
-        firstCard = { element, item };
-      } else {
-        attempts++;
-        const isMatch = firstCard.item.type !== item.type &&
-          firstCard.item.word === item.word &&
-          firstCard.item.pinyin === item.pinyin;
-
-        if (isMatch) {
-          matchedCards.push(item);
-          setTimeout(() => {
-            firstCard.element.classList.add("matched");
-            element.classList.add("matched");
-            activePairs = activePairs.filter(p => p.id !== item.id);
-            if (queuePairs.length > 0 && activePairs.length < 4) {
-              activePairs.push(queuePairs.shift());
-            }
-            firstCard = null;
-            if (matchedCards.length === allPairs.length) {
-              finishGame();
-            } else {
-              renderCards();
-            }
-          }, 300);
-        } else {
-          const errorAudio = document.getElementById("errorSound");
-          errorAudio.play().catch(err => console.warn("播放錯誤提示聲失敗：", err));
-          firstCard.element.classList.add("error");
-          element.classList.add("error");
-          missedAnswers.push(firstCard.item, item);
-          setTimeout(() => {
-            firstCard.element.classList.remove("selected", "error");
-            element.classList.remove("selected", "error");
-            firstCard = null;
+    if (element.classList.contains("selected")) return;
+    element.classList.add("selected");
+    if (item.type === "word") speak(item.word);
+    if (!firstCard) {
+      firstCard = { element, item };
+    } else {
+      attempts++;
+      const isMatch = firstCard.item.type !== item.type &&
+        firstCard.item.word === item.word &&
+        firstCard.item.pinyin === item.pinyin;
+      if (isMatch) {
+        matchedCards.push(item);
+        setTimeout(() => {
+          firstCard.element.classList.add("matched");
+          element.classList.add("matched");
+          activePairs = activePairs.filter(p => p.id !== item.id);
+          if (queuePairs.length > 0 && activePairs.length < 4) {
+            activePairs.push(queuePairs.shift());
+          }
+          firstCard = null;
+          if (matchedCards.length === allPairs.length) {
+            finishGame();
+          } else {
             renderCards();
-          }, 500);
-        }
-      }
-    }
-
-    function finishGame() {
-      clearInterval(timerInterval);
-      document.getElementById("gameWrapper").style.display = "none";
-      document.getElementById("progress").style.display = "none";
-      document.getElementById("timer").textContent = "";
-
-      const timeUsed = Math.floor((Date.now() - startTime) / 1000);
-      const lang = document.getElementById("langSelect").value;
-      const wrongSet = new Set(missedAnswers.map(p => `${p.word} – ${p.pinyin}`));
-
-      let resultText = "";
-      if (lang === "zh-Hans") {
-        resultText = `🎉 成功配对 ${allPairs.length} 组！\n\n⏱ 时间：${timeUsed} 秒\n✅ 答题次数（含错）：${attempts}\n❌ 错题数：${wrongSet.size}\n\n错题正确答案：\n${Array.from(wrongSet).join("\n")}`;
+          }
+        }, 300);
       } else {
-        resultText = `🎉 成功配對 ${allPairs.length} 組！\n\n⏱ 時間：${timeUsed} 秒\n✅ 答題次數（含錯）：${attempts}\n❌ 錯題數：${wrongSet.size}\n\n錯題正確答案：\n${Array.from(wrongSet).join("\n")}`;
+        const errorAudio = document.getElementById("errorSound");
+        errorAudio.play().catch(err => console.warn("錯誤提示聲失敗：", err));
+        firstCard.element.classList.add("error");
+        element.classList.add("error");
+        missedAnswers.push(firstCard.item, item);
+        setTimeout(() => {
+          firstCard.element.classList.remove("selected", "error");
+          element.classList.remove("selected", "error");
+          firstCard = null;
+          renderCards();
+        }, 500);
       }
-
-      document.getElementById("status").textContent = resultText;
-      document.getElementById("replayBtn").style.display = "inline-block";
-
-      const winAudio = document.getElementById("winSound");
-      winAudio.volume = 0.3;
-      winAudio.play();
     }
+  }
 
-    function switchLang(lang) {
-      document.documentElement.lang = lang;
-      document.getElementById("gameTitle").textContent =
-        lang === "zh-Hans" ? "汉字与拼音配对游戏" : "中文字與拼音配對遊戲";
-      document.getElementById("startBtn").textContent =
-        lang === "zh-Hans" ? "开始游戏" : "開始遊戲";
-      document.getElementById("restartBtn").textContent =
-        lang === "zh-Hans" ? "输入词组" : "輸入詞組";
-      document.getElementById("replayBtn").textContent =
-        lang === "zh-Hans" ? "再玩一次" : "再玩一次";
-      document.getElementById("soundLabel").textContent =
-        lang === "zh-Hans" ? "启用声音" : "啟用聲音";
-      document.getElementById("timer").textContent =
-        lang === "zh-Hans" ? "⏱ 时间：0 秒" : "⏱ 時間：0 秒";
+  function finishGame() {
+    clearInterval(timerInterval);
+    document.getElementById("gameWrapper").style.display = "none";
+    document.getElementById("progress").style.display = "none";
+    document.getElementById("timer").textContent = "";
+    const timeUsed = Math.floor((Date.now() - startTime) / 1000);
+    const wrongSet = new Set(missedAnswers.map(p => `${p.word} – ${p.pinyin}`));
+    const lang = document.getElementById("langSelect").value;
+    const resultText =
+      lang === "zh-Hans"
+        ? `🎉 成功配对 ${allPairs.length} 组！
 
-      populateVoiceOptions();
-    }
+⏱ 时间：${timeUsed} 秒
+✅ 答题次数（含错）：${attempts}
+❌ 错题数：${wrongSet.size}
 
-    function shareGame() {
-      const inputText = document.getElementById("inputArea").value;
-      const encoded = btoa(encodeURIComponent(inputText));
-      const shareUrl = `${location.origin}${location.pathname}?data=${encoded}`;
-      navigator.clipboard.writeText(shareUrl).then(() => {
-        alert("分享連結已複製！\n" + shareUrl);
-      }).catch(err => {
-        alert("無法複製連結：" + err);
-      });
-    }
+错题正确答案：
+${Array.from(wrongSet).join("\n")}`
+        : `🎉 成功配對 ${allPairs.length} 組！
 
-    function getQueryParam(key) {
-      const urlParams = new URLSearchParams(window.location.search);
-      return urlParams.get(key);
-    }
+⏱ 時間：${timeUsed} 秒
+✅ 答題次數（含錯）：${attempts}
+❌ 錯題數：${wrongSet.size}
 
-    window.onload = () => {
-      const dataParam = getQueryParam("data");
-      if (dataParam) {
-        try {
-          const decoded = decodeURIComponent(atob(dataParam));
-          document.getElementById("inputArea").value = decoded;
-        } catch (e) {
-          console.warn("網址參數解析失敗：", e);
-        }
-      } else {
-        const savedInput = localStorage.getItem("lastInput");
-        if (savedInput) {
-          document.getElementById("inputArea").value = savedInput;
-        }
+錯題正確答案：
+${Array.from(wrongSet).join("\n")}`;
+    document.getElementById("status").textContent = resultText;
+    document.getElementById("replayBtn").style.display = "inline-block";
+    const winAudio = document.getElementById("winSound");
+    winAudio.volume = 0.3;
+    winAudio.play();
+  }
+
+  window.onload = () => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const dataParam = urlParams.get("data");
+    if (dataParam) {
+      try {
+        const decoded = decodeURIComponent(atob(dataParam));
+        document.getElementById("inputArea").value = decoded;
+      } catch (e) {
+        console.warn("資料解析失敗：", e);
       }
-      populateVoiceOptions();
-      speechSynthesis.onvoiceschanged = populateVoiceOptions;
-    };
-  </script>
+    } else {
+      const saved = localStorage.getItem("lastInput");
+      if (saved) document.getElementById("inputArea").value = saved;
+    }
+    populateVoiceOptions();
+    speechSynthesis.onvoiceschanged = populateVoiceOptions;
+  }
+</script>
 </body>
 </html>
