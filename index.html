@@ -21,13 +21,11 @@
 </head>
 <body>
   <h1 id="gameTitle">中文字與拼音配對遊戲</h1>
-  <textarea id="inputArea" placeholder="每行格式：蘋果,píngguǒ">公園,gōngyuán
-醫院,yīyuàn
-教室,jiàoshì
-學校,xuéxiào</textarea><br>
+  <textarea id="inputArea" placeholder="每行格式：蘋果,píngguǒ"></textarea><br>
   <button onclick="startGame()" id="startBtn">開始遊戲</button>
   <button onclick="showInputArea()" id="restartBtn">輸入詞組</button>
   <button onclick="startGame()" id="replayBtn">再玩一次</button>
+  <button onclick="shareGame()">分享遊戲</button>
   <label><input type="checkbox" id="soundToggle" checked> <span id="soundLabel">啟用聲音</span></label>
   <select id="voiceSelect"></select>
   <select id="langSelect" onchange="switchLang(this.value)">
@@ -96,7 +94,7 @@
 
     function startGame() {
       const inputText = document.getElementById("inputArea").value;
-      localStorage.setItem("lastInput", inputText);  // 儲存輸入內容
+      localStorage.setItem("lastInput", inputText);
 
       document.getElementById("inputArea").style.display = "none";
       document.getElementById("replayBtn").style.display = "none";
@@ -210,30 +208,29 @@
     }
 
     function finishGame() {
-  clearInterval(timerInterval);
-  document.getElementById("gameWrapper").style.display = "none";
-  document.getElementById("progress").style.display = "none";
-  document.getElementById("timer").textContent = "";
+      clearInterval(timerInterval);
+      document.getElementById("gameWrapper").style.display = "none";
+      document.getElementById("progress").style.display = "none";
+      document.getElementById("timer").textContent = "";
 
-  const timeUsed = Math.floor((Date.now() - startTime) / 1000);
-  const wrongSet = new Set(missedAnswers.map(p => `${p.word} – ${p.pinyin}`));
-  const lang = document.getElementById("langSelect").value;
-  let resultText = "";
+      const timeUsed = Math.floor((Date.now() - startTime) / 1000);
+      const lang = document.getElementById("langSelect").value;
+      const wrongSet = new Set(missedAnswers.map(p => `${p.word} – ${p.pinyin}`));
 
-  if (lang === "zh-Hans") {
-    resultText = `🎉 成功配对 ${allPairs.length} 组！\n\n⏱ 时间：${timeUsed} 秒\n✅ 答题次数（含错）：${attempts}\n❌ 错题数：${wrongSet.size}\n\n错题正确答案：\n${Array.from(wrongSet).join("\n")}`;
-  } else {
-    resultText = `🎉 成功配對 ${allPairs.length} 組！\n\n⏱ 時間：${timeUsed} 秒\n✅ 答題次數（含錯）：${attempts}\n❌ 錯題數：${wrongSet.size}\n\n錯題正確答案：\n${Array.from(wrongSet).join("\n")}`;
-  }
+      let resultText = "";
+      if (lang === "zh-Hans") {
+        resultText = `🎉 成功配对 ${allPairs.length} 组！\n\n⏱ 时间：${timeUsed} 秒\n✅ 答题次数（含错）：${attempts}\n❌ 错题数：${wrongSet.size}\n\n错题正确答案：\n${Array.from(wrongSet).join("\n")}`;
+      } else {
+        resultText = `🎉 成功配對 ${allPairs.length} 組！\n\n⏱ 時間：${timeUsed} 秒\n✅ 答題次數（含錯）：${attempts}\n❌ 錯題數：${wrongSet.size}\n\n錯題正確答案：\n${Array.from(wrongSet).join("\n")}`;
+      }
 
-  document.getElementById("status").textContent = resultText;
-  document.getElementById("replayBtn").style.display = "inline-block";
+      document.getElementById("status").textContent = resultText;
+      document.getElementById("replayBtn").style.display = "inline-block";
 
-  const winAudio = document.getElementById("winSound");
-  winAudio.volume = 0.3;
-  winAudio.play();
-}
-
+      const winAudio = document.getElementById("winSound");
+      winAudio.volume = 0.3;
+      winAudio.play();
+    }
 
     function switchLang(lang) {
       document.documentElement.lang = lang;
@@ -253,10 +250,36 @@
       populateVoiceOptions();
     }
 
+    function shareGame() {
+      const inputText = document.getElementById("inputArea").value;
+      const encoded = btoa(encodeURIComponent(inputText));
+      const shareUrl = `${location.origin}${location.pathname}?data=${encoded}`;
+      navigator.clipboard.writeText(shareUrl).then(() => {
+        alert("分享連結已複製！\n" + shareUrl);
+      }).catch(err => {
+        alert("無法複製連結：" + err);
+      });
+    }
+
+    function getQueryParam(key) {
+      const urlParams = new URLSearchParams(window.location.search);
+      return urlParams.get(key);
+    }
+
     window.onload = () => {
-      const savedInput = localStorage.getItem("lastInput");
-      if (savedInput) {
-        document.getElementById("inputArea").value = savedInput;
+      const dataParam = getQueryParam("data");
+      if (dataParam) {
+        try {
+          const decoded = decodeURIComponent(atob(dataParam));
+          document.getElementById("inputArea").value = decoded;
+        } catch (e) {
+          console.warn("網址參數解析失敗：", e);
+        }
+      } else {
+        const savedInput = localStorage.getItem("lastInput");
+        if (savedInput) {
+          document.getElementById("inputArea").value = savedInput;
+        }
       }
       populateVoiceOptions();
       speechSynthesis.onvoiceschanged = populateVoiceOptions;
