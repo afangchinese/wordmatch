@@ -26,7 +26,7 @@
       #gameWrapper { flex-direction: row; justify-content: center; }
     }
   </style>
-  <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+  
 </head>
 <body>
   <h1 id="gameTitle">中文字與拼音配對遊戲</h1>
@@ -124,13 +124,9 @@
     out.innerHTML = `
       <input type="text" value="${shareUrl}" id="copyLink" readonly style="width:90%; max-width:500px; font-size:14px; padding:5px; margin-bottom:10px;" />
       <br><button onclick="copyLinkToClipboard()">${copyBtnText}</button>
-      <div style="margin-top:10px; display: flex; justify-content: center;"><div id="qrcode"></div></div>
+      
     `;
-    new QRCode(document.getElementById("qrcode"), {
-      text: shareUrl,
-      width: 128,
-      height: 128
-    });
+
   }
 
   function copyLinkToClipboard() {
@@ -239,7 +235,9 @@
         }, 300);
       } else {
         const errorAudio = document.getElementById("errorSound");
-        errorAudio.play().catch(err => console.warn("錯誤提示聲失敗：", err));
+errorAudio.volume = 1.0; // 設定音量為最大（範圍 0.0 ~ 1.0）
+errorAudio.play().catch(err => console.warn("錯誤提示聲失敗：", err));
+
         firstCard.element.classList.add("error");
         element.classList.add("error");
         missedAnswers.push(firstCard.item, item);
