@@ -115,19 +115,28 @@
   }
 
   function shareGame() {
-    const inputText = document.getElementById("inputArea").value;
-    const encoded = btoa(encodeURIComponent(inputText));
-    const shareUrl = `${location.origin}${location.pathname}?data=${encoded}`;
-    const lang = document.getElementById("langSelect").value;
-    const copyBtnText = lang === "zh-Hans" ? "复制链接" : "複製連結";
-    const out = document.getElementById("shareOutput");
-    out.innerHTML = `
-      <input type="text" value="${shareUrl}" id="copyLink" readonly style="width:90%; max-width:500px; font-size:14px; padding:5px; margin-bottom:10px;" />
-      <br><button onclick="copyLinkToClipboard()">${copyBtnText}</button>
-      
-    `;
+  const inputText = document.getElementById("inputArea").value;
+  const lang = document.getElementById("langSelect").value;
+  const voiceIndex = document.getElementById("voiceSelect").value;
+  const soundOn = document.getElementById("soundToggle").checked;
 
-  }
+  const payload = {
+    data: inputText,
+    lang: lang,
+    voice: voiceIndex,
+    sound: soundOn
+  };
+  const encoded = btoa(encodeURIComponent(JSON.stringify(payload)));
+  const shareUrl = `${location.origin}${location.pathname}?data=${encoded}`;
+
+  const copyBtnText = lang === "zh-Hans" ? "复制链接" : "複製連結";
+  const out = document.getElementById("shareOutput");
+  out.innerHTML = `
+    <input type="text" value="${shareUrl}" id="copyLink" readonly style="width:90%; max-width:500px; font-size:14px; padding:5px; margin-bottom:10px;" />
+    <br><button onclick="copyLinkToClipboard()">${copyBtnText}</button>
+  `;
+}
+
 
   function copyLinkToClipboard() {
     const linkInput = document.getElementById("copyLink");
@@ -289,8 +298,17 @@ ${Array.from(wrongSet).join("\n")}`;
     const dataParam = urlParams.get("data");
     if (dataParam) {
       try {
-        const decoded = decodeURIComponent(atob(dataParam));
-        document.getElementById("inputArea").value = decoded;
+        const parsed = JSON.parse(decodeURIComponent(atob(dataParam)));
+if (parsed.data) document.getElementById("inputArea").value = parsed.data;
+if (parsed.lang) {
+  document.getElementById("langSelect").value = parsed.lang;
+  switchLang(parsed.lang);
+}
+
+if (parsed.sound !== undefined) {
+  document.getElementById("soundToggle").checked = parsed.sound;
+}
+
       } catch (e) {
         console.warn("資料解析失敗：", e);
       }
