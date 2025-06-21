@@ -31,7 +31,7 @@
 </head>
 <body>
   <h1 id="gameTitle">中文字與拼音配對遊戲</h1>
-  <div style="max-width:600px; margin: auto; text-align: left; font-size: 14px; background: #fff8dc; padding: 10px; border-radius: 8px;">
+  <div id="instructions" style="max-width:600px; margin: auto; text-align: left; font-size: 14px; background: #fff8dc; padding: 10px; border-radius: 8px;">
   <strong>✿あそびかた:</strong><br>
   <p><strong>開始遊戲</strong>👉ボタンを押すと、ゲームが始まるよ！<br>
    <strong>啟用聲音</strong>👉オンにすると、ピンインを声に出して読んでくれる。<br>
@@ -114,12 +114,27 @@
   function switchLang(lang) {
     document.documentElement.lang = lang;
     document.getElementById("gameTitle").textContent = lang === "zh-Hans" ? "汉字与拼音配对游戏" : "中文字與拼音配對遊戲";
+
     document.getElementById("startBtn").textContent = lang === "zh-Hans" ? "开始游戏" : "開始遊戲";
     document.getElementById("restartBtn").textContent = lang === "zh-Hans" ? "输入词组" : "輸入詞組";
     document.getElementById("replayBtn").textContent = lang === "zh-Hans" ? "再玩一次" : "再玩一次";
     document.getElementById("shareBtn").textContent = lang === "zh-Hans" ? "分享游戏" : "分享遊戲";
     document.getElementById("soundLabel").textContent = lang === "zh-Hans" ? "启用声音" : "啟用聲音";
     document.getElementById("timer").textContent = lang === "zh-Hans" ? "⏱ 时间：0 秒" : "⏱ 時間：0 秒";
+    const instruction = document.getElementById("instructions");
+    if (instruction) {
+      instruction.innerHTML = lang === "zh-Hans"
+        ? `✿あそびかた:<br>
+        <p><strong>开始游戏</strong>👉ボタンを押すと、ゲームが始まるよ！<br>
+        <strong>启用声音</strong>👉オンにすると、ピンインを声に出して読んでくれる。<br>
+        いっしょに大きな声でまねしてみよう！<br><br>
+        🌵✨まいにちれんしゅうすれば、もっとじょうずになれるね！さあ、ゲームをはじめよう！</p>`
+        : `✿あそびかた:<br>
+        <p><strong>開始遊戲</strong>👉ボタンを押すと、ゲームが始まるよ！<br>
+        <strong>啟用聲音</strong>👉オンにすると、ピンインを声に出して読んでくれる。<br>
+        いっしょに大きな声でまねしてみよう！<br><br>
+        🌵✨まいにちれんしゅうすれば、もっとじょうずになれるね！さあ、ゲームをはじめよう！</p>`;
+    }
 
     populateVoiceOptions();
   }
