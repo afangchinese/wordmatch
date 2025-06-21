@@ -70,6 +70,7 @@
 
   <script>
   let allPairs = [], queuePairs = [], activePairs = [], matchedCards = [], missedAnswers = [], firstCard = null, attempts = 0, gameStarted = false, startTime = 0, timerInterval = null;
+  let wrongCount = 0;
 
   function showInputArea() {
     document.getElementById("inputArea").style.display = "block";
@@ -156,6 +157,7 @@
   }
 
   function startGame() {
+    wrongCount = 0;
     const inputText = document.getElementById("inputArea").value;
     localStorage.setItem("lastInput", inputText);
     document.getElementById("inputArea").style.display = "none";
@@ -253,6 +255,7 @@
         }, 300);
       } else {
         const errorAudio = document.getElementById("errorSound");
+        wrongCount = wrongCount + 1;
 errorAudio.volume = 1.0; // 設定音量為最大（範圍 0.0 ~ 1.0）
 errorAudio.play().catch(err => console.warn("錯誤提示聲失敗：", err));
 
@@ -291,7 +294,7 @@ ${Array.from(wrongSet).join("\n")}`
 
 ⏱ 時間：${timeUsed} 秒
 ✅ 答題次數（含錯）：${attempts}
-❌ 錯題數：${wrongSet.size}
+❌ 錯題數：${wrongCount}
 
 錯題正確答案：
 ${Array.from(wrongSet).join("\n")}`;
